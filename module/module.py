@@ -7,6 +7,7 @@
 #    Gerhard Lausser, Gerhard.Lausser@consol.de
 #    Gregory Starck, g.starck@gmail.com
 #    Hartmut Goebel, h.goebel@goebel-consult.de
+#    Guillaume Subiron, maethor@subiron.org
 #
 # This file is part of Shinken.
 #
@@ -29,6 +30,7 @@ for mainly get graphs and links.
 """
 
 import socket
+import requests
 
 from shinken.log import logger
 from shinken.basemodule import BaseModule
@@ -95,25 +97,41 @@ class PNP_Webui(BaseModule):
         if not elt:
             return []
 
-        t = elt.__class__.my_type
-        r = []
+        nb_metrics = self.get_number_of_metrics(elt)
 
-        if t == 'host':
-            nb_metrics = self.get_number_of_metrics(elt)
-            for i in range(nb_metrics):
-                v = {}
-                v['link'] = self.uri + 'index.php/graph?host=%s&srv=_HOST_' % elt.get_name()
-                v['img_src'] = self.uri + 'index.php/image?host=%s&srv=_HOST_&view=0&source=%d&start=%d&end=%d' % (elt.get_name(), i, graphstart, graphend)
-                r.append(v)
-            return r
-        if t == 'service':
-            nb_metrics = self.get_number_of_metrics(elt)
-            for i in range(nb_metrics):
-                v = {}
-                v['link'] = self.uri + 'index.php/graph?host=%s&srv=%s' % (elt.host.host_name, elt.service_description)
-                v['img_src'] = self.uri + 'index.php/image?host=%s&srv=%s&view=0&source=%d&start=%d&end=%d' % (elt.host.host_name, elt.service_description, i, graphstart, graphend)
-                r.append(v)
-            return r
+        if not nb_metrics:
+            return []
 
-        # Oups, bad type?
-        return []
+        if elt.__class__.my_type == 'host':
+            srv = '_HOST_'
+            host = elt.get_name()
+        elif elt.__class__.my_type == 'service':
+            srv = elt.service_description
+            host = elt.host.host_name
+        else:
+            # Oups, bad type?
+            return []
+
+        graphs = []
+
+        # We have at least one graph
+        graph = {}
+        graph['link'] = self.uri + 'index.php/graph?host=%s&srv=%s' % (host, srv)
+        graph['img_src'] = self.uri + 'index.php/image?host=%s&srv=%s&view=0&source=0&start=%d&end=%d' % (host, srv, graphstart, graphend)
+        graphs.append(graph)
+
+        # 20 should be a pretty good limit to avoid an infinite loop
+        for i in range(1, nb_metrics):
+            img_src = self.uri + 'index.php/image?host=%s&srv=%s&view=0&source=%d&start=%d&end=%d' % (host, srv, i, graphstart, graphend)
+            r = requests.get(img_src, timeout=1)
+            # PNP4Nagios return 200 and a small image even if there is no graph
+            # We use the image size to see it
+            if r.status_code != 200 or len(r.content) < 1000:
+                break
+            else:
+                graph = {}
+                graph['link'] = self.uri + 'index.php/graph?host=%s&srv=%s' % (host, srv)
+                graph['img_src'] = img_src
+                graphs.append(graph)
+
+        return graphs

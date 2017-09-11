@@ -1,7 +1,7 @@
 {
   "name": "ui-pnp",
   "types": ["module"],
-  "version": "1.0",
+  "version": "1.1",
   "homepage": "http://github.com/shinken-monitoring/mod-ui-pnp",
   "author": "Jean Gabès",
   "description": "Enable PNP4Nagios graphs inside the WebUI",
@@ -9,6 +9,10 @@
     {
       "name": "Jean Gabès",
       "email": "naparuba@gmail.com"
+    },
+    {
+      "name": "Guillaume Subiron",
+      "email": "maethor@subiron.org"
     }
   ],
   "repository": "https://github.com/shinken-monitoring/mod-ui-pnp",
