@@ -75,17 +75,17 @@ class PNP_Webui(BaseModule):
     def load(self, app):
         self.app = app
 
+    # Give the link for the PNP UI, with a Name
+    def get_external_ui_link(self):
+        return {'label': 'PNP4', 'uri': self.uri}
+
     # For an element, give the number of elements in
-    # the perf_data
-    def get_number_of_metrics(self, elt):
+    # the perfdata
+    def _get_number_of_perfdata_metrics(self, elt):
         perf_data = elt.perf_data.strip()
         elts = perf_data.split(' ')
         elts = [e for e in elts if e != '']
         return len(elts)
-
-    # Give the link for the PNP UI, with a Name
-    def get_external_ui_link(self):
-        return {'label': 'PNP4', 'uri': self.uri}
 
     # Ask for an host or a service the graph UI that the UI should
     # give to get the graph image link and PNP page link too.
@@ -95,11 +95,6 @@ class PNP_Webui(BaseModule):
     # you can customize the url depending on this value. (or not)
     def get_graph_uris(self, elt, graphstart, graphend, source = 'detail'):
         if not elt:
-            return []
-
-        nb_metrics = self.get_number_of_metrics(elt)
-
-        if not nb_metrics:
             return []
 
         if elt.__class__.my_type == 'host':
@@ -114,14 +109,11 @@ class PNP_Webui(BaseModule):
 
         graphs = []
 
-        # We have at least one graph
-        graph = {}
-        graph['link'] = self.uri + 'index.php/graph?host=%s&srv=%s' % (host, srv)
-        graph['img_src'] = self.uri + 'index.php/image?host=%s&srv=%s&view=0&source=0&start=%d&end=%d' % (host, srv, graphstart, graphend)
-        graphs.append(graph)
-
-        # 20 should be a pretty good limit to avoid an infinite loop
-        for i in range(1, nb_metrics):
+        # We cannot only base ourselves on perfdata metrics because
+        # most plugins cannot return perfdata when they are in unknown state
+        # (plugins called throught NRPE for instance).
+        # But they may be graphs to display anyway.
+        for i in range(0, (self._get_number_of_perfdata_metrics(elt) or 10)):
             img_src = self.uri + 'index.php/image?host=%s&srv=%s&view=0&source=%d&start=%d&end=%d' % (host, srv, i, graphstart, graphend)
             r = requests.get(img_src, timeout=1)
             # PNP4Nagios return 200 and a small image even if there is no graph
